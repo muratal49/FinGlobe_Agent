@@ -1,4 +1,4 @@
-# FinGlobe Agent
+# FinGlobe Agent : A sentiment agent model focusing on central banks outlets
 Multi-agent system for hawkish/dovish sentiment analysis using Bank of England (BoE) and Bank of Canada (BoC) data.
 
 A modular, agent-based system that scrapes and analyzes central bank communications to detect **hawkish/dovish sentiment** from the **Bank of England (BoE)** and **Bank of Canada (BoC)**.
@@ -43,3 +43,12 @@ For both:
 ## 📁 Project Structure
 
 
+FinGlobe_agent/
+│
+├── agents/ ← main agents (research, analysis)
+├── tools/ ← scrapers and sentiment tools
+├── data/ ← intermediate data
+├── analysis/ ← models and visualizations
+├── notebooks/ ← development notebooks
+├── main.py ← end-to-end runner
+└── README.md
