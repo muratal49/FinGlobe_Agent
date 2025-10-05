@@ -1,4 +1,4 @@
-# FinGlobe Agent : A sentiment agent model focusing on central banks outlets
+# FinGlobe Agent : A multi agent model focusing on central banks outlets
 Multi-agent system for hawkish/dovish sentiment analysis using Bank of England (BoE) and Bank of Canada (BoC) data.
 
 A modular, agent-based system that scrapes and analyzes central bank communications to detect **hawkish/dovish sentiment** from the **Bank of England (BoE)** and **Bank of Canada (BoC)**.
