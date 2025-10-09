@@ -153,7 +153,8 @@ Runs all modules sequentially:
 ---
 
 ## 🔗 Useful Links
-- [Bank of England – Speeches](https://www.bankofengland.co.uk/news/speeches)  
+- [Bank of England – Speeches](https://www.bankofengland.co.uk/news/speeches)
+- [Bank of England –  Monetray Policy Committee Minutes](https://www.bankofengland.co.uk/news)
 - [Bank of Canada – Deliberations]( (https://www.bankofcanada.ca/publications/summary-governing-council-deliberations/)
 - [Bank of Canada – Monetray Policy Reports] (https://www.bankofcanada.ca/publications/mpr/)
 - 
