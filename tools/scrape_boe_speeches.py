@@ -26,7 +26,7 @@ from bs4 import BeautifulSoup
 
 # ---------- Config defaults ----------
 SITEMAP_URL = "https://www.bankofengland.co.uk/sitemap/speeches"
-DEFAULT_MONTHS_BACK = 8
+DEFAULT_MONTHS_BACK = 6
 DEFAULT_KEYWORDS = ["Monetary Policy Committee", "MPC", "inflation"]
 OUTPUT_CSV = "data/boe_filtered_speeches.csv"
 
