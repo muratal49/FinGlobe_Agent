@@ -1,7 +1,7 @@
 # 🧠 FinGlobe Agent  
 ### Central Bank Sentiment Intelligence (BoE & BoC)
 
----
+The system uses a multi-agent architecture inspired by the MCP (Multi-Context Protocol) framework:
 
 ## 📘 Overview
 **FinGlobe Agent** is an agentic research and analysis framework designed to automatically **collect, summarize, and analyze** central bank communications — such as **speeches, minutes, and policy statements** from the **Bank of England (BoE)** and **Bank of Canada (BoC)** — to quantify **hawkish–dovish sentiment** ahead of monetary policy decisions.
