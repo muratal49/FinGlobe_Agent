@@ -53,3 +53,7 @@ Thumbs.db
 
 # Notebooks outputs (if any)
 *.nbconvert.ipynb
+
+# ignore local mac and data files
+.DS_Store
+data/
