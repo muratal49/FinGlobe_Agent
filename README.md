@@ -47,7 +47,7 @@ FinGlobe_Agent/
 
 ### 1️⃣ Clone the Repository
 ```bash
-git clone https://github.com/<your-org-or-username>/FinGlobe_Agent.git
+git clone https://github.com/muratal49/FinGlobe_Agent.git
 cd FinGlobe_Agent
 ```
 
