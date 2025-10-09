@@ -1,0 +1,32 @@
+# Core
+python-dotenv
+pandas
+numpy
+tqdm
+
+# Web scraping
+requests
+beautifulsoup4
+lxml
+
+# NLP / LLM interaction
+openai
+tiktoken
+
+# Data handling and cleaning
+regex
+nltk
+
+# Visualization and analysis (for later analysis agent)
+matplotlib
+seaborn
+
+# Logging and utils
+loguru
+
+# Optional (for multi-agent / async runs)
+asyncio
+aiohttp
+
+# Notebook (if used)
+jupyterlab
