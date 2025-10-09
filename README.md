@@ -154,8 +154,10 @@ Runs all modules sequentially:
 
 ## 🔗 Useful Links
 - [Bank of England – Speeches](https://www.bankofengland.co.uk/news/speeches)  
-- [Bank of Canada – Speeches](https://www.bankofcanada.ca/speeches/)  
-- [GitHub Repository](https://github.com/<your-org-or-username>/FinGlobe_Agent)
+- [Bank of Canada – Deliberations]( (https://www.bankofcanada.ca/publications/summary-governing-council-deliberations/)
+- [Bank of Canada – Monetray Policy Reports] (https://www.bankofcanada.ca/publications/mpr/)
+- 
+- [GitHub Repository](https://github.com/muratal49/FinGlobe_Agent)
 
 ---
 
@@ -163,7 +165,7 @@ Runs all modules sequentially:
 If you just want to test everything end-to-end:
 ```bash
 # 1. Clone & install
-git clone https://github.com/<your-org-or-username>/FinGlobe_Agent.git
+git clone https://github.com/muratal49/FinGlobe_Agent.git
 cd FinGlobe_Agent
 pip install -r requirements.txt
 
