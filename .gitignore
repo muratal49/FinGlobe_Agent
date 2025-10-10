@@ -28,9 +28,9 @@ data/raw/
 data/tmp/
 data/intermediate/
 data/cache/
-data/**/*.csv
-data/**/*.json
-data/**/*.txt
+# data/**/*.csv
+# data/**/*.json
+# data/**/*.txt
 
 # Model checkpoints / results
 models/
@@ -56,4 +56,4 @@ Thumbs.db
 
 # ignore local mac and data files
 .DS_Store
-data/
+# data/
