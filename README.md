@@ -22,9 +22,10 @@ FinGlobe_Agent/
 ├── tools/
 │   ├── scrape_boe_speeches.py     # Scrapes recent BoE speeches (date/topic filters)
 │   ├── speech_eda_lda.py          # EDA analysis of the scraped speeched
-│   ├── fetch_minutes.py           # (planned) Fetches MPC meeting minutes
+│   ├── fetch_minutes.py           # Fetches MPC meeting minutes
 │   ├── fetch_content.py           # (planned) Generic text fetcher
-│   └── filter_articles.py         # (planned) Filters and cleans scraped data
+ data/
+    ├──analysis_results            #csv, png, json files
 │
 ├── agents/
 │   ├── root_agent.py              # Orchestrates multi-agent workflow
