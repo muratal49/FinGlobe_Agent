@@ -24,18 +24,17 @@ FinGlobe_Agent/
 │   ├── speech_eda_lda.py          # EDA analysis of the scraped speeched
 │   ├── fetch_minutes.py           # Fetches MPC meeting minutes
 │   ├── fetch_content.py           # (planned) Generic text fetcher
- data/
-    ├──analysis_results            #csv, png, json files
+|-- data/
+|   ├──analysis_results            #csv, png, json files
+│   ├── raw/                       # Raw scraped speeches/articles -- LOCAL
+│   ├── processed/                 # Cleaned summaries-- -- LOCAL
+│   └── analysis/                  # Final sentiment scores and metrics-- -- LOCAL
 │
 ├── agents/
 │   ├── root_agent.py              # Orchestrates multi-agent workflow
 │   ├── research_agent.py          # Handles scraping and data retrieval
 │   └── analysis_agent.py          # Evaluates hawkish–dovish sentiment
 │
-├── data/
-│   ├── raw/                       # Raw scraped speeches/articles
-│   ├── processed/                 # Cleaned summaries
-│   └── analysis/                  # Final sentiment scores and metrics
 │
 ├── logs/                          # Runtime and debug logs
 │
