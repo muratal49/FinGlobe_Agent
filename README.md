@@ -186,5 +186,5 @@ data/
 ---
 
 **Maintainers:**  
-👤 Murat A. • 👤 Praveen Kumar A. • 👤 Saruultug B. • 👤 Yibin W.  
+👤 Murat A. • 👤 Praveen Kumar A. • 👤 Saruultugs B. • 👤 Yibin W.  
 *(Team FinGlobe — University of Rochester, MS Data Science Capstone 2025)*  
