@@ -1,62 +1,58 @@
-
 from selenium import webdriver
 import json, time, datetime as dt, logging, os
+from pathlib import Path # ADDED
 
+# Assuming utils.py provides the necessary functions:
 from mcp_project.utils.utils import \
     logger, \
     getDriver, clickCookieIfPresent, clickMpcMinutes, \
-    findDateInputs, applyFilters, expandAll, collectItems, parseDate, extractContent, iso_for_filename
-
-# tools/meeting_scrapper.py  (only new/changed bits)
-
-# tools/meeting_scrapper.py (imports)
-from mcp_project.utils.utils import \
-    logger, getDriver, clickCookieIfPresent, clickMpcMinutes, \
     findDateInputs, applyFilters, expandAll, collectItems, parseDate, extractContent, \
-    formatDate, iso_for_filename   # <-- add iso_for_filename
+    formatDate, iso_for_filename
+
+# --- NEW CONFIGURATION ---
+# Define the root of your project structure
+PROJECT_ROOT = Path("/Users/murat/Desktop/Capstone/FinGlobe_Agent")
+OUTPUT_DIR = PROJECT_ROOT / "data" / "raw"
+OUTPUT_FILENAME = "minutes_boe.json"
+# -------------------------
 
 def run(start=None, end=None, headless=False, write_files=True):
     driver = getDriver(headless=headless)
     try:
+        # 1. Apply Filters and Collect Items
         applyFilters(driver, start=start, end=end)
         items = collectItems(driver)
         data = {}
+        
+        # 2. Extract Content
         for hint, href in items:
+            # key = date string (ISO 8601 or similar)
+            # txt = raw content
             key, txt = extractContent(driver, href, hint)
             if txt and "to be published" not in txt.lower():
                 data[key] = txt
 
         if write_files:
-            os.makedirs("cache/scrapped_data", exist_ok=True)
-
-            # always write the working file
-            with open("mpc_minutes.json", "w", encoding="utf-8") as f:
+            # Ensure the output directory exists
+            OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+            
+            # --- WRITE FINAL ALIGNED FILE ---
+            final_output_path = OUTPUT_DIR / OUTPUT_FILENAME
+            
+            with open(final_output_path, "w", encoding="utf-8") as f:
                 json.dump(data, f, ensure_ascii=False, indent=2)
 
-            # write timestamped snapshot (existing behavior)
-            stamp = dt.datetime.now().strftime("%Y%m%d_%H%M%S")
-            ts_cache = f"cache/scrapped_data/mpc_minutes_{stamp}.json"
-            with open(ts_cache, "w", encoding="utf-8") as f:
-                json.dump(data, f, ensure_ascii=False, indent=2)
-
-            # NEW: write range-named cache if dates provided (or defaults used)
-            s = start or dt.date(dt.date.today().year, 1, 1)
-            e = end   or dt.date.today()
-            s_tag = iso_for_filename(s)
-            e_tag = iso_for_filename(e)
-            range_cache = f"cache/scrapped_data/mpc_minutes_{s_tag}_{e_tag}.json"
-            with open(range_cache, "w", encoding="utf-8") as f:
-                json.dump(data, f, ensure_ascii=False, indent=2)
-
+            # --- Simplified Logging ---
             logger.info(
-                "Saved %d entries | working=mpc_minutes.json | ts=%s | range=%s",
-                len(data), ts_cache, range_cache
+                "✅ Minutes Scraper completed. Saved %d entries to %s",
+                len(data), final_output_path.resolve()
             )
 
         return data
 
     except Exception as e:
         logger.exception("Fatal error: %s", e)
+        # ... (error handling remains the same)
         try:
             driver.save_screenshot("error_screenshot.png")
             with open("error_dom.html", "w", encoding="utf-8") as f:
@@ -68,4 +64,6 @@ def run(start=None, end=None, headless=False, write_files=True):
         driver.quit()
 
 if __name__ == "__main__":
-    run()
+    # Example usage: scrape last 12 months in headless mode
+    one_year_ago = dt.date.today() - dt.timedelta(days=365)
+    run(start=one_year_ago, headless=True)

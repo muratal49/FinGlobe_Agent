@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 ROOT AGENT PIPELINE: Orchestrates the entire data ingestion, scoring, and analysis workflow.
-This version fixes the NameError by passing the --start-date to the evaluation tools.
+This version integrates the corrected tool paths for Roberta and OpenAI evaluation.
 """
 import os
 import sys
@@ -15,7 +15,8 @@ TOOL_DIR = Path(__file__).resolve().parent
 # Define the relative paths to your existing tools
 SCRAPER_TOOL = TOOL_DIR / "scrape_boe_speeches.py"
 PREP_TOOL = TOOL_DIR / "preparing_scraped_docs.py"
-MERGE_SCORE_TOOL = TOOL_DIR / "merged_score_evaluate.py"
+# UPDATED TOOL PATHS
+ROBERTA_SCORE_TOOL = TOOL_DIR / "roberta_merged_score_evaluate.py"
 OPENAI_TOOL = TOOL_DIR / "openai_merge_score_justify.py" 
 
 # NOTE: The default keywords will now be read from inside the scrape_boe_speeches.py file.
@@ -74,18 +75,18 @@ def main():
     
     # --- 3. CONTEXT ENRICHMENT (SCORING) ---
     
-    # 3A. Roberta Scoring & Evaluation (PASSING --start-date)
+    # 3A. Roberta Scoring & Evaluation (NOW USING CORRECTED PATH)
     run_command([
         sys.executable, 
-        str(MERGE_SCORE_TOOL),
-        "--start-date", args.start_date # FIX APPLIED HERE
+        str(ROBERTA_SCORE_TOOL),
+        "--start-date", args.start_date
     ], "3A. SCORE/EVAL: Roberta Model Scoring & Final Plotting")
 
-    # 3B. OpenAI Scoring & Justification (PASSING --start-date)
+    # 3B. OpenAI Scoring & Justification (PATH IS CORRECTED)
     run_command([
         sys.executable, 
         str(OPENAI_TOOL),
-        "--start-date", args.start_date # FIX APPLIED HERE for consistency
+        "--start-date", args.start_date
     ], "3B. SCORE/JUSTIFY: OpenAI LLM Analysis")
     
     print("\n\n✅ AGENT PIPELINE COMPLETE.")
