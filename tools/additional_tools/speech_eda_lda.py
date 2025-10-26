@@ -1,8 +1,9 @@
+#!/usr/bin/env python3
 """
 Speech EDA + LDA Topic Analysis Tool (v5)
 -----------------------------------------
 Performs EDA, LDA topic modeling, normalized keyword trends, and identifies
-distinctive monthly keywords.  Saves all visuals under /data/analysis_results/.
+distinctive monthly keywords. Saves all visuals under /data/analysis_results/.
 """
 
 import pandas as pd
@@ -14,16 +15,13 @@ from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
 from nltk.stem import WordNetLemmatizer
 import nltk
-import re, string
-import seaborn as sns
+import re, string, seaborn as sns
 
 nltk.download("punkt", quiet=True)
 nltk.download("stopwords", quiet=True)
 nltk.download("wordnet", quiet=True)
 
-
 # ---------- Helpers ----------
-
 def first_day_of_month_n_months_ago(n: int) -> datetime:
     now = datetime.now(timezone.utc)
     y, m = now.year, now.month
@@ -32,13 +30,10 @@ def first_day_of_month_n_months_ago(n: int) -> datetime:
     m2 += 1
     return datetime(y2, m2, 1, tzinfo=timezone.utc)
 
-
 def ensure_dir(path: Path):
     path.mkdir(parents=True, exist_ok=True)
 
-
 def save_figure(fig, title: str):
-    """Save figure to /data/analysis_results/."""
     out_dir = Path("data/analysis_results")
     ensure_dir(out_dir)
     safe_title = title.replace(" ", "_").replace("/", "_").lower()
@@ -47,9 +42,7 @@ def save_figure(fig, title: str):
     plt.close(fig)
     print(f"💾 Saved figure: {file_path}")
 
-
 # ---------- Load Data ----------
-
 def load_latest_speech_data():
     candidates = sorted(Path("data/raw").glob("boe*.csv"), reverse=True)
     if not candidates:
@@ -58,9 +51,7 @@ def load_latest_speech_data():
     print(f"📄 Loaded {candidates[0].name} with {len(df)} speeches")
     return df
 
-
 # ---------- EDA ----------
-
 def basic_eda(df: pd.DataFrame):
     df["date"] = pd.to_datetime(df["date"], errors="coerce")
     df = df.dropna(subset=["date"])
@@ -77,9 +68,7 @@ def basic_eda(df: pd.DataFrame):
     save_figure(fig, "Number of Speeches per Month")
     return df
 
-
 # ---------- Text Preprocessing ----------
-
 def preprocess_texts(df: pd.DataFrame):
     stop_words = set(stopwords.words("english"))
     lemmatizer = WordNetLemmatizer()
@@ -105,13 +94,10 @@ def preprocess_texts(df: pd.DataFrame):
     print(f"🧹 Retained {len(df)} speeches after token filtering")
     return df
 
-
 # ---------- LDA ----------
-
 def lda_topic_model(df: pd.DataFrame, num_topics=10):
     dictionary = corpora.Dictionary(df["tokens"])
     corpus = [dictionary.doc2bow(tokens) for tokens in df["tokens"]]
-
     lda_model = models.LdaModel(
         corpus=corpus,
         id2word=dictionary,
@@ -135,18 +121,14 @@ def lda_topic_model(df: pd.DataFrame, num_topics=10):
     df["topic_keywords"] = df["dominant_topic"].apply(
         lambda t: ", ".join([w for w, _ in lda_model.show_topic(t, topn=6)]) if t is not None else ""
     )
-
     return df, lda_model
 
-
 # ---------- Monthly Trends and Distinctive Words ----------
-
 def summarize_monthly_topics(df: pd.DataFrame):
     df["month"] = df["date"].dt.to_period("M")
     cutoff = first_day_of_month_n_months_ago(6).replace(tzinfo=None)
     df_recent = df[df["date"] >= cutoff]
 
-    # Expand topic keywords
     expanded = (
         df_recent.groupby("month")["topic_keywords"]
         .apply(lambda x: ", ".join(x))
@@ -160,18 +142,16 @@ def summarize_monthly_topics(df: pd.DataFrame):
     speech_counts = df_recent.groupby("month").size()
     normalized = keyword_month.div(speech_counts, axis=0).fillna(0)
 
-    # --- Ignore globally dominant boilerplate words ---
     COMMON_GLOBAL_TERMS = {
         "monetary", "policy", "financial", "market",
         "economy", "economic", "system", "bank", "committee"
     }
     normalized = normalized[[c for c in normalized.columns if c.lower() not in COMMON_GLOBAL_TERMS]]
 
-    # --- Top 7 keywords globally (after filtering) ---
     top7 = normalized.sum(axis=0).sort_values(ascending=False).head(7).index
     normalized_top = normalized[top7]
 
-    # Trend Plot
+    # Trend Line Plot
     fig, ax = plt.subplots(figsize=(10, 5))
     normalized_top.plot(ax=ax, marker="o")
     ax.set_title("Monthly Usage Trends of Top 7 Keywords (Filtered & Normalized)")
@@ -181,44 +161,43 @@ def summarize_monthly_topics(df: pd.DataFrame):
     plt.tight_layout()
     save_figure(fig, "Monthly Usage Trends of Top 7 Keywords (Filtered & Normalized)")
 
-    # --- Identify distinctive monthly keywords ---
+    # Distinctive Keywords
     overall_avg = normalized.mean()
     distinctive_words = {}
     for month in normalized.index:
         diff = (normalized.loc[month] - overall_avg).sort_values(ascending=False)
-        distinct = [w for w in diff.index if w not in top7][:2]  # skip global top words
+        distinct = [w for w in diff.index if w not in top7][:2]
         distinctive_words[month] = distinct
 
-    # --- Create summary table ---
     summary_df = pd.DataFrame([
-        {
-            "Month": month.strftime("%B, %Y"),
-            "Distinctive Keywords": ", ".join(words)
-        }
+        {"Month": month.strftime("%B, %Y"), "Distinctive Keywords": ", ".join(words)}
         for month, words in distinctive_words.items()
     ])
-
     print("\n🧭 Distinctive Monthly Keywords (excluding top common terms):")
     print(summary_df.to_string(index=False))
 
-    # --- Heatmap of normalized frequencies ---
-    import seaborn as sns
-    diff_matrix = normalized_top.copy()
-    diff_matrix.index = [m.strftime("%b, %Y") for m in diff_matrix.index]
-    fig, ax = plt.subplots(figsize=(10, 5))
-    sns.heatmap(diff_matrix.T, cmap="YlGnBu", annot=True, fmt=".2f", cbar_kws={'label': 'Normalized Freq'})
-    ax.set_title("Heatmap: Normalized Frequency of Top 7 Filtered Keywords by Month")
-    plt.tight_layout()
-    save_figure(fig, "Heatmap Normalized Frequency of Top 7 Filtered Keywords by Month")
+    # --- Replaced HEATMAP with BAR CHART ---
+    bar_df = normalized_top.copy()
+    bar_df.index = [m.strftime("%b, %Y") for m in bar_df.index]
+    bar_df = bar_df.reset_index().melt(id_vars="index", var_name="Keyword", value_name="Normalized Frequency")
+    bar_df.rename(columns={"index": "Month"}, inplace=True)
 
-    # Save summary CSV
+    fig, ax = plt.subplots(figsize=(12, 6))
+    sns.barplot(data=bar_df, x="Month", y="Normalized Frequency", hue="Keyword", ax=ax)
+    ax.set_title("Bar Chart: Normalized Frequency of Top 7 Filtered Keywords by Month")
+    ax.set_xlabel("Month")
+    ax.set_ylabel("Normalized Frequency")
+    ax.legend(title="Keyword", bbox_to_anchor=(1.05, 1), loc="upper left")
+    plt.xticks(rotation=45, ha="right")
+    plt.tight_layout()
+    save_figure(fig, "Bar Chart Normalized Frequency of Top 7 Filtered Keywords by Month")
+
     out_table = Path("data/analysis_results/monthly_distinctive_keywords_filtered.csv")
     ensure_dir(out_table.parent)
     summary_df.to_csv(out_table, index=False)
     print(f"\n💾 Saved distinctive monthly keywords summary to {out_table}")
 
 # ---------- Main ----------
-
 def main():
     df = load_latest_speech_data()
     df = basic_eda(df)
@@ -230,7 +209,6 @@ def main():
     ensure_dir(out_path.parent)
     df.to_csv(out_path, index=False)
     print(f"\n✅ Saved detailed topic analysis to {out_path}")
-
 
 if __name__ == "__main__":
     main()

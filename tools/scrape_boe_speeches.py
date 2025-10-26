@@ -1,16 +1,11 @@
 #!/usr/bin/env python3
 """
-Scrape Bank of England speech pages (HTML only) from the public "Speeches sitemap",
-filter by date window and topic keywords, clean acknowledgements/references/footnotes,
-and save to a CSV (comma-safe quoting).
+Scrape Bank of England speech pages (HTML only), filter by date and topic,
+clean the full text, and extract the conclusion/summary section.
 
-- Source: https://www.bankofengland.co.uk/sitemap/speeches   (static HTML)
-- We skip PDFs entirely.
-- We only visit URLs like /speech/YYYY/<month>/<slug> and ignore everything else.
-- We filter by:
-    * start_date (default: first day of month N months back)
-    * keywords in title or body (default: MPC / Monetary Policy Committee / inflation)
-- Output CSV columns: date,title,speaker,text,url
+- Source: https://www.bankofengland.co.uk/sitemap/speeches
+- Filters: start_date, title/body keywords.
+- Output CSV columns: date,title,speaker,text,conclusion_text,url
 """
 
 import re
@@ -28,7 +23,7 @@ from bs4 import BeautifulSoup
 SITEMAP_URL = "https://www.bankofengland.co.uk/sitemap/speeches"
 DEFAULT_MONTHS_BACK = 6
 DEFAULT_KEYWORDS = ["Monetary Policy Committee", "MPC", "inflation"]
-OUTPUT_CSV = "data/raw/boe_filtered_speeches.csv"
+OUTPUT_CSV = "data/raw/boe_filtered_speeches_conclusion.csv" # Updated default output name
 
 MONTHS = {
     "january": 1, "february": 2, "march": 3, "april": 4, "may": 5, "june": 6,
@@ -48,6 +43,7 @@ session.headers.update({
     "Connection": "keep-alive",
 })
 
+# --- Helper Functions (Scraping/Date) ---
 
 def first_day_of_month_n_months_ago(n: int) -> datetime:
     """Return UTC datetime at 00:00 of the first day of the month N months ago."""
@@ -197,22 +193,12 @@ def extract_body_text(soup: BeautifulSoup) -> str:
     return out.strip()
 
 
-
 def strip_ack_refs_footnotes(text: str) -> str:
     """Remove 'Acknowledgements', 'References', 'Footnotes' sections + inline footnotes like [1]."""
     if not text:
         return text
-    section_re = re.compile(
-        r"(?mis)(^|\n)\s*(Acknowledgements?|Acknowledgments?|References?|Footnotes?)\s*(:)?\s*(\n|$).*?\Z"
-    )
-    text = section_re.sub("", text)
-    text = re.sub(r"\[\d+\]", "", text)  # remove [1], [12], etc.
-    text = re.sub(r"[ \t]+\n", "\n", text)
-    text = re.sub(r"\n{3,}", "\n\n", text)
-    return text.strip()
 
     # Remove sections starting from a heading line to end of text
-    # Headings usually appear as their own lines because we injected newlines between tags.
     section_re = re.compile(
         r"(?mis)(^|\n)\s*(Acknowledgements?|Acknowledgments?|References?|Footnotes?)\s*(:)?\s*(\n|$).*?\Z"
     )
@@ -226,9 +212,45 @@ def strip_ack_refs_footnotes(text: str) -> str:
     text = re.sub(r"\n{3,}", "\n\n", text)
     return text.strip()
 
+# --- Conclusion Extraction Logic (from filter_conclusions.py) ---
+
+def extract_conclusion(text: str) -> str | None:
+    """
+    Return conclusion or last 3–4 sentences/paragraphs from the cleaned speech text.
+    Modified from filter_conclusions.py to operate on clean text, not raw HTML.
+    """
+    if not isinstance(text, str) or len(text) < 50:
+        return None
+
+    # Replace newlines with spaces for smoother regex matching/sentence splitting
+    clean_text = re.sub(r"\s+", " ", text).strip()
+
+    # look for conclusion markers
+    pattern = re.compile(r"(?i)\b(conclusion|summary|to conclude|final thoughts|closing remarks)\b")
+    match = pattern.search(clean_text)
+
+    if match:
+        # Start from the found conclusion cue
+        section = clean_text[match.start():]
+    else:
+        # fallback: last 3–4 sentences
+        sentences = re.split(r"(?<=[.!?])\s+", clean_text)
+        # Ensure we don't try to slice more sentences than exist
+        section = " ".join(sentences[-4:])
+
+    # cut off acknowledgements/references
+    end_pattern = re.compile(r"(?i)\b(acknowledg|reference|appendix|thank|bibliograph)\b")
+    end_match = end_pattern.search(section)
+    if end_match:
+        section = section[:end_match.start()]
+
+    # Only return if the conclusion section is substantial
+    return section.strip() if len(section.split()) > 40 else None
+
+# --- Main Scraper Logic ---
 
 def fetch_speech(url: str, keywords_lower):
-    """Return dict with date,title,speaker,text,url or None if filtered out/invalid."""
+    """Return dict with date,title,speaker,text,conclusion_text,url or None if filtered out/invalid."""
     try:
         r = session.get(url, timeout=30)
         r.raise_for_status()
@@ -242,7 +264,7 @@ def fetch_speech(url: str, keywords_lower):
 
     title = extract_title(soup).strip()
     body = extract_body_text(soup)
-    body = strip_ack_refs_footnotes(body)
+    body = strip_ack_refs_footnotes(body) # Clean the main body text
 
     # Require non-empty body
     if not body:
@@ -255,11 +277,20 @@ def fetch_speech(url: str, keywords_lower):
 
     speaker = extract_speaker(title, soup)
 
+    # --- Apply Conclusion Extraction ---
+    conclusion_text = extract_conclusion(body)
+    # -----------------------------------
+    
+    # If a conclusion is required but not found, you might filter it here.
+    # The original filter script kept all speeches, marking 'conclusion_text' as None if not found,
+    # so we'll keep the record even if conclusion_text is None.
+
     return {
         "date": pub_dt.date().isoformat(),
         "title": title,
         "speaker": speaker,
         "text": body,
+        "conclusion_text": conclusion_text, # Added conclusion_text
         "url": url,
     }
 
@@ -267,8 +298,13 @@ def fetch_speech(url: str, keywords_lower):
 def scrape(start_date: datetime, keywords, limit_per_year=None, sleep=0.4):
     """Yield filtered speech records from the sitemap."""
     print(f"🗺  Fetching sitemap… {SITEMAP_URL}")
-    r = session.get(SITEMAP_URL, timeout=30)
-    r.raise_for_status()
+    try:
+        r = session.get(SITEMAP_URL, timeout=30)
+        r.raise_for_status()
+    except Exception as e:
+        print(f"❌ Failed to fetch sitemap: {e}")
+        return
+
     soup = BeautifulSoup(r.text, "lxml")
 
     # Collect candidate links
@@ -289,16 +325,24 @@ def scrape(start_date: datetime, keywords, limit_per_year=None, sleep=0.4):
 
     keywords_lower = [k.lower() for k in keywords]
 
+    results = []
     for i, url in enumerate(links, 1):
         rec = fetch_speech(url, keywords_lower)
         if rec:
-            yield rec
+            results.append(rec)
         if sleep:
             time.sleep(sleep)
+            
+    # Now, explicitly filter out records where 'conclusion_text' is None,
+    # replicating the final Pandas filter from `filter_conclusions.py`
+    final_rows = [r for r in results if r['conclusion_text'] is not None]
+    
+    # Return the filtered list
+    yield from final_rows
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Scrape BoE speeches (HTML only).")
+    parser = argparse.ArgumentParser(description="Scrape BoE speeches (HTML only) and extract conclusion text.")
     parser.add_argument("--months-back", type=int, default=DEFAULT_MONTHS_BACK,
                         help="How many months back (from now) to include, starting at the 1st of that month.")
     parser.add_argument("--start-date", type=str, default=None,
@@ -322,14 +366,14 @@ def main():
     print(f"📅 Start date: {start_date.date().isoformat()} | 🔎 Keywords: {keywords}")
 
     rows = list(scrape(start_date, keywords))
-    print(f"✅ Matched speeches: {len(rows)}")
+    print(f"✅ Matched speeches with conclusion text: {len(rows)}")
 
     out_path = Path(args.out)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     with out_path.open("w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(
             f,
-            fieldnames=["date", "title", "speaker", "text", "url"],
+            fieldnames=["date", "title", "speaker", "text", "conclusion_text", "url"],
             quoting=csv.QUOTE_ALL,           # <-- comma-safe quoting
             escapechar="\\",                 # escape embedded quotes if any
         )
