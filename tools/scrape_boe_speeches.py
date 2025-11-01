@@ -20,10 +20,14 @@ import requests
 from bs4 import BeautifulSoup
 
 # ---------- Config defaults ----------
+
+# --- CONSOLIDATED CONFIGURATION ---
+BASE_PATH = Path("/Users/murat/Desktop/Capstone/FinGlobe_Agent")
+
 SITEMAP_URL = "https://www.bankofengland.co.uk/sitemap/speeches"
 DEFAULT_MONTHS_BACK = 6
 DEFAULT_KEYWORDS = ["Monetary Policy Committee", "MPC", "inflation"]
-OUTPUT_CSV = "data/raw/boe_filtered_speeches_conclusion.csv" # Updated default output name
+OUTPUT_CSV = BASE_PATH / "data/raw/boe_filtered_speeches_conclusion.csv" # Updated default output name
 
 MONTHS = {
     "january": 1, "february": 2, "march": 3, "april": 4, "may": 5, "june": 6,

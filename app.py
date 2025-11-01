@@ -25,10 +25,10 @@ def scrapeMpcMinutes(start: str = "", end: str = "", headless: bool = False) -> 
     """
     t0 = time.perf_counter()
     logger.info("scrapeMpcMinutes: start | start=%s end=%s headless=%s", start, end, headless)
-    from .tools import meeting_scrapper
+    from .tools import meeting_scraper
     s = start or None
     e = end or None
-    meeting_scrapper.run(start=s, end=e, headless=headless, write_files=True)
+    meeting_scraper.run(start=s, end=e, headless=headless, write_files=True)
 
     with open("mpc_minutes.json", "r", encoding="utf-8") as f:
         data = json.load(f)

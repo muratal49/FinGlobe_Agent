@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 ROOT AGENT PIPELINE: Orchestrates the entire data ingestion, scoring, and analysis workflow.
-This version integrates the corrected tool paths for Roberta and OpenAI evaluation.
+Ensures date prefixing across all outputs.
 """
 import os
 import sys
@@ -13,13 +13,13 @@ from pathlib import Path
 TOOL_DIR = Path(__file__).resolve().parent
 
 # Define the relative paths to your existing tools
-SCRAPER_TOOL = TOOL_DIR / "scrape_boe_speeches.py"
+SPEECHES_SCRAPER_TOOL = TOOL_DIR / "scrape_boe_speeches.py"
+MINUTES_SCRAPER_TOOL = TOOL_DIR / "meeting_scraper.py"
 PREP_TOOL = TOOL_DIR / "preparing_scraped_docs.py"
-# UPDATED TOOL PATHS
-ROBERTA_SCORE_TOOL = TOOL_DIR / "roberta_merged_score_evaluate.py"
-OPENAI_TOOL = TOOL_DIR / "openai_merge_score_justify.py" 
+SCORING_TOOL = TOOL_DIR / "speech_scoring.py" 
+EVAL_PLOT_TOOL = TOOL_DIR / "roberta_merged_score_evaluate.py"
+OPENAI_TOOL = TOOL_DIR / "openai_merge_score_justify.py"
 
-# NOTE: The default keywords will now be read from inside the scrape_boe_speeches.py file.
 DEFAULT_KEYWORDS_FOR_LOG = "Monetary Policy Committee, MPC, inflation (Default)"
 
 def run_command(command, step_name):
@@ -36,8 +36,7 @@ def run_command(command, step_name):
             capture_output=True
         )
         print("✅ SUCCESS.")
-        # Print only a small snippet of stdout for success confirmation
-        print(result.stdout.split('\n')[:5])
+        print('\n'.join(result.stdout.split('\n')[:5]))
     except subprocess.CalledProcessError as e:
         print(f"❌ ERROR in {step_name}: Command failed.")
         print(f"--- Stdout ---\n{e.stdout}")
@@ -52,45 +51,59 @@ def main():
     parser = argparse.ArgumentParser(
         description="Root Agent Pipeline for BoE Monetary Policy Analysis."
     )
-    # The script now ONLY accepts the start date
     parser.add_argument(
         "--start-date",
         type=str,
         required=True,
-        help="Start date for scraping (YYYY-MM-DD)."
+        help="Start date for scraping and filtering (YYYY-MM-DD)."
     )
     args = parser.parse_args()
 
-    print(f"Starting pipeline. Keywords assumed: {DEFAULT_KEYWORDS_FOR_LOG}")
+    date_prefix = args.start_date.replace('-', '')
+    print(f"Starting pipeline. Date Prefix: {date_prefix}. Keywords assumed: {DEFAULT_KEYWORDS_FOR_LOG}")
     
     # --- 1. DATA INGESTION ---
+    # 1A. Scrape Minutes Data
     run_command([
-        sys.executable, 
-        str(SCRAPER_TOOL),
+        sys.executable, str(MINUTES_SCRAPER_TOOL),
         "--start-date", args.start_date
-    ], "1. SCRAPE: Ingest Raw Speeches Data")
+    ], "1A. SCRAPE: Ingest Raw Minutes Data")
 
-    # --- 2. CONTEXT CLEANSING & TRANSFORMATION ---
-    run_command([sys.executable, str(PREP_TOOL)], "2. PREPARE: Clean & Aggregate All Documents (MCP Context Setup)")
+    # 1B. Scrape Speeches Data
+    run_command([
+        sys.executable, str(SPEECHES_SCRAPER_TOOL),
+        "--start-date", args.start_date
+    ], "1B. SCRAPE: Ingest Raw Speeches Data")
+
+    # --- 2. CONTEXT CLEANSING & TRANSFORMATION (Creates the 4 monthly JSONs) ---
+    run_command([
+        sys.executable, str(PREP_TOOL),
+        "--start-date", args.start_date 
+    ], "2. PREPARE: Clean & Aggregate All Documents")
     
     # --- 3. CONTEXT ENRICHMENT (SCORING) ---
     
-    # 3A. Roberta Scoring & Evaluation (NOW USING CORRECTED PATH)
+    # 3A. Roberta Scoring (Creates all base scores and the critical merged score CSVs)
     run_command([
-        sys.executable, 
-        str(ROBERTA_SCORE_TOOL),
-        "--start-date", args.start_date
-    ], "3A. SCORE/EVAL: Roberta Model Scoring & Final Plotting")
+        sys.executable, str(SCORING_TOOL),
+        "--start-date", args.start_date 
+    ], "3A. SCORE: Generate All Monthly Scores (Roberta)")
 
-    # 3B. OpenAI Scoring & Justification (PATH IS CORRECTED)
+    # 3B. Roberta Evaluation & Plotting (Loads the CSVs created in 3A and generates the final plot/CSV)
     run_command([
-        sys.executable, 
-        str(OPENAI_TOOL),
-        "--start-date", args.start_date
-    ], "3B. SCORE/JUSTIFY: OpenAI LLM Analysis")
+        sys.executable, str(EVAL_PLOT_TOOL),
+        "--start-date", args.start_date 
+    ], "3B. EVAL/PLOT: Final Analysis and Plotting")
+
+
+    # 3C. OpenAI Scoring & Justification
+    run_command([
+        sys.executable, str(OPENAI_TOOL),
+        "--start-date", args.start_date 
+    ], "3C. SCORE/JUSTIFY: OpenAI LLM Analysis")
     
     print("\n\n✅ AGENT PIPELINE COMPLETE.")
-    print("Final analysis CSV and PNG plot are in the 'data/analysis_results/' directory.")
+    print(f"Final outputs are prefixed with: {date_prefix}_")
 
 if __name__ == "__main__":
     main()

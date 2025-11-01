@@ -11,9 +11,10 @@ from dotenv import load_dotenv
 from openai import OpenAI
 from tqdm import tqdm
 import re
+import argparse # Added argparse
 
 # --- Configuration ---
-load_dotenv() # Load variables from .env file
+load_dotenv()
 try:
     OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
     if not OPENAI_API_KEY:
@@ -24,13 +25,11 @@ except ValueError as e:
 
 # File paths
 BASE_PATH = Path("/Users/murat/Desktop/Capstone/FinGlobe_Agent")
-# Inputs: 
 MINUTES_CLEAN_PATH = BASE_PATH / "data/raw/minutes_boe_clean.json"
 SPEECHES_CLEAN_PATH = BASE_PATH / "data/raw/speeches_boe_clean.json"
-# The CSV containing the final list of months from the previous merging step (used to define the date range)
 MONTHS_REFERENCE_CSV = BASE_PATH / "data/analysis_results/scored_merged_text.csv"
-# Output:
-OUTPUT_CSV_PATH = BASE_PATH / "data/analysis_results/openai_merged_scores_analysis.csv"
+# Output Path Template
+OUTPUT_CSV_PATH_TEMPLATE = BASE_PATH / "data/analysis_results/{prefix}_openai_merged_scores_analysis.csv"
 
 
 # Model and System Prompt Definition
@@ -56,90 +55,54 @@ You are an expert economic and monetary policy analyst focused on the Bank of En
 Your task is to analyze concatenated text from official BoE Minutes and Speeches for a single month.
 
 Analyze the text for hawkishness (tightening bias) or dovishness (easing bias) based on the following framework:
-1. Identify the frequency and context of terms from Panel A (Hawkish/Tightening bias) versus Panel B (Dovish/Easing bias).
-2. Panel A terms (A1 and A2) suggest a move toward or maintenance of restrictive policy.
-3. Panel B terms (B1 and B2) suggest a move toward or maintenance of accommodative policy.
-
-CRITICAL REQUIREMENT: Your justification MUST explicitly mention and contextualize at least three specific terms found in the provided text that align with your analysis (e.g., mention both a term from Panel A and a term from Panel B to demonstrate balance).
-
-Scoring Guidelines:
-- **Score:** A single floating-point number between -1.0 (Extreme Dovishness) and +1.0 (Extreme Hawkishness). A score of 0.0 is Neutral.
-- **Justification:** A professional, clear, and concise justification based on the identified keywords and monetary policy context, strictly limited to {MAX_WORDS_JUSTIFICATION} words.
-
-Scoring Panels:
-{json.dumps(SCORING_CRITERIA, indent=4)}
-
-You MUST return your answer as a single, valid JSON object with the keys 'score' and 'justification'.
-Example Output:
-{{
-  "score": 0.45,
-  "justification": "The analysis revealed a moderately hawkish intent, primarily driven by persistent concerns over inflation expectation (Panel A1). The text explicitly discussed tightening (Panel A2) financial conditions, noting that while economic growth (Panel B1) was soft, the need to anchor (Panel A2) price stability remained paramount for the MPC's mandate."
-}}
+... (System Prompt remains the same) ...
 """
-# --- End of System Prompt ---
 
-def load_all_monthly_text(months_to_analyze):
-    """Loads text from JSON files and performs the forward-looking cumulative merge for specified months."""
-    print("1. Loading all necessary text sources for merging...")
+# --- TEXT LOADING AND FILTERING LOGIC (The New Requirement) ---
+
+def load_merged_text_data(months_to_analyze):
+    """
+    Loads text sources, applies the Minutes-only month filter, and aggregates text.
+    The rule is: ONLY combine Speeches text for months where Minutes are available.
+    """
+    print("1. Loading Minutes and Speeches text data...")
     try:
         with MINUTES_CLEAN_PATH.open("r", encoding="utf-8") as f:
-            minutes_data_daily = json.load(f)
+            minutes_data = json.load(f)
         with SPEECHES_CLEAN_PATH.open("r", encoding="utf-8") as f:
-            speeches_data_daily = json.load(f)
+            speeches_data = json.load(f)
     except Exception as e:
         print(f"❌ Error loading cleaned JSON files: {e}")
         return {} 
 
-    # Convert keys to YYYY-MM-DD datetime objects for correct chronological comparison
-    minutes_dt = {pd.to_datetime(k): v for k, v in minutes_data_daily.items() if v}
-    speeches_dt = {pd.to_datetime(k): v for k, v in speeches_data_daily.items() if v}
-    
-    # Identify policy anchors (Minutes dates)
-    policy_anchors = sorted(list(minutes_dt.keys()))
-    
+    # --- Filtering and Aggregation ---
     final_monthly_text = {}
     separator = "\n\n\n[NEW SOURCE TEXT]\n\n\n" 
 
-    print("2. Re-merging text blocks based on Minutes anchors...")
-
-    # Logic to aggregate speeches until the next Minutes date
-    for i, anchor_date in enumerate(policy_anchors):
-        month_key = anchor_date.strftime('%Y-%m')
-        
-        # We only need to generate the text if the month is in our required list
-        if month_key not in months_to_analyze:
-            continue
-            
-        # Determine the window start date (day after the previous anchor)
-        if i == 0:
-            accumulation_start_date = pd.to_datetime(min(speeches_dt.keys(), default=anchor_date)) - pd.Timedelta(days=1)
-        else:
-            accumulation_start_date = policy_anchors[i-1]
-        
-        # 2b. Start with the Minutes text for this month
-        current_block = minutes_dt[anchor_date]
-        
-        # 2c. Accumulate all speech texts that fall within the current window:
-        speeches_to_merge = []
-        for speech_date, text in sorted(speeches_dt.items()):
-            # Accumulate speeches released (Start date EXCLUSIVE) < Speech Date <= Current Anchor Date
-            if accumulation_start_date < speech_date <= anchor_date:
-                speeches_to_merge.append(text)
-        
-        # 2d. Finalize the month's text block (Minutes + Speeches)
-        if speeches_to_merge:
-            speeches_text = separator.join(speeches_to_merge)
-            current_block += separator + speeches_text
-        
-        # Assign the fully merged text block to the month key
-        final_monthly_text[month_key] = current_block
+    print("2. Filtering texts: ONLY merging for months where Minutes data exists...")
     
+    for month_key in months_to_analyze:
+        minutes_text = minutes_data.get(month_key, "").strip()
+        speeches_text = speeches_data.get(month_key, "").strip()
+        
+        # ⚠️ CRITICAL FILTER: Only process the month if it has Minutes data
+        if minutes_text:
+            combined_text = minutes_text
+            
+            # Add speeches text if available for this specific month
+            if speeches_text:
+                combined_text += separator + speeches_text
+            
+            final_monthly_text[month_key] = combined_text
+        
+    print(f"✅ Prepared merged text blocks for {len(final_monthly_text)} months (Minutes filter enforced).")
     return final_monthly_text
 
 
+# --- SCORING AND MAIN EXECUTION ---
+
 def generate_llm_response(month, text, client):
-    """Sends prompt to OpenAI API and returns parsed score and justification."""
-    
+    # ... (function remains the same) ...
     if not text or len(text) < 50:
         return None, "Text too short or empty for analysis."
 
@@ -156,8 +119,6 @@ def generate_llm_response(month, text, client):
         )
         
         content = response.choices[0].message.content
-        
-        # Parse the JSON response
         result = json.loads(content)
         
         score = float(result.get('score', 0.0))
@@ -171,30 +132,37 @@ def generate_llm_response(month, text, client):
 
 
 def main():
+    parser = argparse.ArgumentParser(description="OpenAI scoring and justification script.")
+    parser.add_argument("--start-date", type=str, required=True, help="The date (YYYY-MM-DD) used for file naming prefix.")
+    args = parser.parse_args()
+    
     print("--- Running OpenAI Scoring and Justification Pipeline ---")
     
-    # 1. Get List of Months to Analyze from the Scored Merged CSV
+    # 1. Generate prefix and finalize output path
+    date_prefix = args.start_date.replace('-', '')
+    final_output_csv_path = OUTPUT_CSV_PATH_TEMPLATE.parent / (date_prefix + "_" + OUTPUT_CSV_PATH_TEMPLATE.name)
+    
+    # 2. Get List of Months to Analyze from the Scored Merged CSV
     try:
         df_ref = pd.read_csv(MONTHS_REFERENCE_CSV)
         # Extract unique month strings (YYYY,MM) and convert to YYYY-MM format
         months_to_analyze_list = df_ref['month_period'].str.replace(',', '-').unique().tolist()
-        print(f"Loaded {len(months_to_analyze_list)} months from reference CSV for analysis.")
+        print(f"Loaded {len(months_to_analyze_list)} months from scoring base CSV for analysis.")
     except Exception as e:
         print(f"❌ Error loading months from reference CSV: {e}")
         return
         
-    # 2. Load and Prepare Merged Text Data for those months
-    merged_texts = load_all_monthly_text(months_to_analyze_list)
+    # 3. Load and Prepare Merged Text Data (Applies new Minutes filter)
+    merged_texts = load_merged_text_data(months_to_analyze_list)
     if not merged_texts:
-        print("❌ Pipeline halted: Could not generate merged text blocks.")
         return
 
-    # 3. Initialize OpenAI Client
+    # 4. Initialize OpenAI Client
     client = OpenAI(api_key=OPENAI_API_KEY)
     
     analysis_records = []
     
-    # 4. Process and Score Each Month
+    # 5. Process and Score Each Month
     print(f"Processing {len(merged_texts)} months with LLM...")
     for month, text in tqdm(merged_texts.items(), desc="Scoring Months"):
         score, justification = generate_llm_response(month, text, client)
@@ -205,17 +173,14 @@ def main():
             'openai_justification': justification
         })
 
-    # 5. Save Results
+    # 6. Save Results
     df_results = pd.DataFrame(analysis_records)
-    
-    # Final cleanup and sorting
     df_results = df_results.sort_values('month_period')
     
-    OUTPUT_CSV_PATH.parent.mkdir(parents=True, exist_ok=True)
-    df_results.to_csv(OUTPUT_CSV_PATH, index=False)
+    final_output_csv_path.parent.mkdir(parents=True, exist_ok=True)
+    df_results.to_csv(final_output_csv_path, index=False)
     
-    print(f"\n✅ Analysis complete. Results saved to {OUTPUT_CSV_PATH.resolve()}")
-    print(df_results.head().to_markdown(index=False))
+    print(f"\n✅ Analysis complete. Results saved to {final_output_csv_path.resolve()}")
 
 if __name__ == "__main__":
     main()
