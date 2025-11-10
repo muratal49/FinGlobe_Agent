@@ -4,7 +4,7 @@ Scrape Bank of England speech pages (HTML only), filter by date and topic,
 clean the full text, and extract the conclusion/summary section.
 
 - Source: https://www.bankofengland.co.uk/sitemap/speeches
-- Filters: start_date, title/body keywords.
+- Filters: start_date, end_date, title/body keywords.
 - Output CSV columns: date,title,speaker,text,conclusion_text,url
 """
 
@@ -20,14 +20,10 @@ import requests
 from bs4 import BeautifulSoup
 
 # ---------- Config defaults ----------
-
-# --- CONSOLIDATED CONFIGURATION ---
-BASE_PATH = Path("/Users/murat/Desktop/Capstone/FinGlobe_Agent")
-
 SITEMAP_URL = "https://www.bankofengland.co.uk/sitemap/speeches"
-DEFAULT_MONTHS_BACK = 6
+# Removed DEFAULT_MONTHS_BACK
 DEFAULT_KEYWORDS = ["Monetary Policy Committee", "MPC", "inflation"]
-OUTPUT_CSV = BASE_PATH / "data/raw/boe_filtered_speeches_conclusion.csv" # Updated default output name
+OUTPUT_CSV = "data/raw/boe_filtered_speeches_conclusion.csv" # Updated default output name
 
 MONTHS = {
     "january": 1, "february": 2, "march": 3, "april": 4, "may": 5, "june": 6,
@@ -49,15 +45,7 @@ session.headers.update({
 
 # --- Helper Functions (Scraping/Date) ---
 
-def first_day_of_month_n_months_ago(n: int) -> datetime:
-    """Return UTC datetime at 00:00 of the first day of the month N months ago."""
-    now = datetime.now(timezone.utc)
-    y, m = now.year, now.month
-    total_months = (y * 12 + (m - 1)) - n
-    y2, m2 = divmod(total_months, 12)
-    m2 += 1
-    return datetime(y2, m2, 1, tzinfo=timezone.utc)
-
+# Removed first_day_of_month_n_months_ago as it's no longer used
 
 def is_html_speech_url(url: str) -> bool:
     """True if link looks like an HTML speech page (not a PDF/media)."""
@@ -299,7 +287,7 @@ def fetch_speech(url: str, keywords_lower):
     }
 
 
-def scrape(start_date: datetime, keywords, limit_per_year=None, sleep=0.4):
+def scrape(start_date: datetime, end_date: datetime, keywords, limit_per_year=None, sleep=0.4):
     """Yield filtered speech records from the sitemap."""
     print(f"🗺  Fetching sitemap… {SITEMAP_URL}")
     try:
@@ -320,7 +308,11 @@ def scrape(start_date: datetime, keywords, limit_per_year=None, sleep=0.4):
         if is_html_speech_url(href):
             # pre-filter by URL date
             url_dt = date_from_url(href)
-            if url_dt >= start_date.replace(tzinfo=None):
+            
+            # --- DATE WINDOW FILTERING ---
+            # Speech must be ON OR AFTER the start date AND ON OR BEFORE the end date
+            if url_dt.replace(tzinfo=None) >= start_date.replace(tzinfo=None) and \
+               url_dt.replace(tzinfo=None) <= end_date.replace(tzinfo=None):
                 links.append(href)
 
     # Deduplicate & sort newest first (by url date)
@@ -337,8 +329,7 @@ def scrape(start_date: datetime, keywords, limit_per_year=None, sleep=0.4):
         if sleep:
             time.sleep(sleep)
             
-    # Now, explicitly filter out records where 'conclusion_text' is None,
-    # replicating the final Pandas filter from `filter_conclusions.py`
+    # Now, explicitly filter out records where 'conclusion_text' is None
     final_rows = [r for r in results if r['conclusion_text'] is not None]
     
     # Return the filtered list
@@ -347,29 +338,34 @@ def scrape(start_date: datetime, keywords, limit_per_year=None, sleep=0.4):
 
 def main():
     parser = argparse.ArgumentParser(description="Scrape BoE speeches (HTML only) and extract conclusion text.")
-    parser.add_argument("--months-back", type=int, default=DEFAULT_MONTHS_BACK,
-                        help="How many months back (from now) to include, starting at the 1st of that month.")
-    parser.add_argument("--start-date", type=str, default=None,
-                        help="Optional explicit start date (YYYY-MM-DD). Overrides --months-back.")
+    # --- UPDATED ARGUMENTS ---
+    parser.add_argument("--start-date", type=str, required=True,
+                        help="Start date for scraping (YYYY-MM-DD).")
+    parser.add_argument("--end-date", type=str, required=True,
+                        help="End date for scraping (YYYY-MM-DD).")
+    # --- END UPDATED ARGUMENTS ---
     parser.add_argument("--keywords", type=str, default=",".join(DEFAULT_KEYWORDS),
                         help="Comma-separated keywords to keep (title or body).")
     parser.add_argument("--out", type=str, default=OUTPUT_CSV,
                         help="Output CSV path.")
     args = parser.parse_args()
 
-    if args.start_date:
-        try:
-            start_date = datetime.strptime(args.start_date, "%Y-%m-%d").replace(tzinfo=timezone.utc)
-        except ValueError:
-            print("Invalid --start-date (use YYYY-MM-DD)", file=sys.stderr)
-            sys.exit(2)
-    else:
-        start_date = first_day_of_month_n_months_ago(args.months_back)
+    # --- DATE PARSING ---
+    try:
+        start_date = datetime.strptime(args.start_date, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+        end_date = datetime.strptime(args.end_date, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+        if start_date > end_date:
+            raise ValueError("Start date cannot be after end date.")
+    except ValueError as e:
+        print(f"Invalid date argument: {e}", file=sys.stderr)
+        sys.exit(2)
+    # --- END DATE PARSING ---
 
     keywords = [k.strip() for k in args.keywords.split(",") if k.strip()]
-    print(f"📅 Start date: {start_date.date().isoformat()} | 🔎 Keywords: {keywords}")
+    print(f"📅 Date range: {start_date.date().isoformat()} to {end_date.date().isoformat()} | 🔎 Keywords: {keywords}")
 
-    rows = list(scrape(start_date, keywords))
+    # Pass BOTH start_date and end_date to the scrape function
+    rows = list(scrape(start_date, end_date, keywords))
     print(f"✅ Matched speeches with conclusion text: {len(rows)}")
 
     out_path = Path(args.out)

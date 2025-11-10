@@ -1,109 +1,190 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
 """
-ROOT AGENT PIPELINE: Orchestrates the entire data ingestion, scoring, and analysis workflow.
-Ensures date prefixing across all outputs.
+Root Agent Orchestrator
+
+Runs the full BoE pipeline end-to-end:
+
+  1A. meeting_scraper.py                -> data/raw/minutes_boe.json
+  1B. scrape_boe_speeches.py            -> data/raw/boe_filtered_speeches_conclusion.csv (or tools/data/raw fallback)
+  2.  preparing_scraped_docs.py         -> data/raw/minutes_boe_monthly.json,
+                                            data/raw/speeches_boe_monthly.json,
+                                            data/raw/reference_boe_monthly.json
+  3A. roberta_merged_score_evaluate.py  -> data/raw/merged_boe_scores.csv + plots
+  3B. openai_merge_justify.py           -> data/raw/justifications_openai.csv
+
+Usage (CLI):
+  python3 tools/root_agent.py --start-date 2024-08-01 --end-date 2025-01-01
+
+Notes:
+  - GPT model defaults to gpt-4o-mini for 3B.
+  - We pass --end-date to all steps for interface consistency; steps that ignore it will do so safely.
 """
-import os
-import sys
+
+from __future__ import annotations
 import argparse
+import os
+import shlex
 import subprocess
+import sys
 from pathlib import Path
 
-# --- Configuration ---
-TOOL_DIR = Path(__file__).resolve().parent
+# ---------------- Paths ----------------
+REPO = Path("/Users/murat/Desktop/Capstone/FinGlobe_Agent").resolve()
+TOOLS_DIR = REPO / "tools"
+DATA_RAW = REPO / "data" / "raw"
+PLOTS_DIR = REPO / "data" / "plots"
 
-# Define the relative paths to your existing tools
-SPEECHES_SCRAPER_TOOL = TOOL_DIR / "scrape_boe_speeches.py"
-MINUTES_SCRAPER_TOOL = TOOL_DIR / "meeting_scraper.py"
-PREP_TOOL = TOOL_DIR / "preparing_scraped_docs.py"
-SCORING_TOOL = TOOL_DIR / "speech_scoring.py" 
-EVAL_PLOT_TOOL = TOOL_DIR / "roberta_merged_score_evaluate.py"
-OPENAI_TOOL = TOOL_DIR / "openai_merge_score_justify.py"
+PYTHON = "/opt/anaconda3/bin/python3"  # keep consistent with your logs
 
-DEFAULT_KEYWORDS_FOR_LOG = "Monetary Policy Committee, MPC, inflation (Default)"
+# Artifacts we verify
+MINUTES_JSON = DATA_RAW / "minutes_boe.json"
+SPEECHES_CSV_PRIMARY = DATA_RAW / "boe_filtered_speeches_conclusion.csv"
+SPEECHES_CSV_FALLBACKS = [
+    TOOLS_DIR / "data" / "raw" / "boe_filtered_speeches_conclusion.csv",
+    TOOLS_DIR / "boe_filtered_speeches_conclusion.csv",
+]
+MINUTES_MONTHLY = DATA_RAW / "minutes_boe_monthly.json"
+SPEECHES_MONTHLY = DATA_RAW / "speeches_boe_monthly.json"
+REFERENCE_MONTHLY = DATA_RAW / "reference_boe_monthly.json"  # optional
+SCORES_CSV = DATA_RAW / "merged_boe_scores.csv"
+JUSTIFY_CSV = DATA_RAW / "justifications_openai.csv"
 
-def run_command(command, step_name):
-    """Executes a command and checks for errors."""
-    print(f"\n=======================================================")
-    print(f"🚀 STEP: {step_name}")
-    print(f"EXECUTING: {' '.join(command)}")
-    print(f"=======================================================")
-    try:
-        result = subprocess.run(
-            command,
-            check=True,
-            text=True,
-            capture_output=True
-        )
-        print("✅ SUCCESS.")
-        print('\n'.join(result.stdout.split('\n')[:5]))
-    except subprocess.CalledProcessError as e:
-        print(f"❌ ERROR in {step_name}: Command failed.")
-        print(f"--- Stdout ---\n{e.stdout}")
-        print(f"--- Stderr ---\n{e.stderr}")
-        sys.exit(1)
-    except FileNotFoundError:
-        print(f"❌ ERROR in {step_name}: Tool not found. Check path: {command[1]}")
-        sys.exit(1)
+# Script paths
+MEETING_SCRAPER = TOOLS_DIR / "meeting_scraper.py"
+SPEECH_SCRAPER = TOOLS_DIR / "scrape_boe_speeches.py"
+PREPARE_STEP = TOOLS_DIR / "preparing_scraped_docs.py"
+ROBERTA_STEP = TOOLS_DIR / "roberta_merged_score_evaluate.py"
+JUSTIFY_STEP = TOOLS_DIR / "openai_merge_justify.py"
+
+
+def banner(title: str):
+    line = "=" * 55
+    print(f"\n{line}\n🚀 {title}\n{line}", flush=True)
+
+
+def run_cmd(cmd: str, cwd: Path | None = None) -> None:
+    """Run a shell command, stream output, raise on non-zero return."""
+    print(f"EXECUTING: {cmd}", flush=True)
+    proc = subprocess.Popen(
+        shlex.split(cmd),
+        cwd=str(cwd) if cwd else None,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        bufsize=1,
+    )
+    assert proc.stdout is not None
+    for line in proc.stdout:
+        print(line.rstrip())
+    ret = proc.wait()
+    if ret != 0:
+        raise RuntimeError(f"Command failed with exit code {ret}: {cmd}")
+    print("✅ SUCCESS.", flush=True)
+
+
+def find_speeches_csv() -> Path | None:
+    if SPEECHES_CSV_PRIMARY.exists():
+        return SPEECHES_CSV_PRIMARY
+    for fb in SPEECHES_CSV_FALLBACKS:
+        if fb.exists():
+            return fb
+    return None
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Root Agent Pipeline for BoE Monetary Policy Analysis."
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--start-date", required=True, help="YYYY-MM-DD")
+    ap.add_argument("--end-date", required=True, help="YYYY-MM-DD")
+    ap.add_argument("--headless", action="store_true", default=True, help="Run scrapers headless (default True)")
+    ap.add_argument("--gpt-model", default="gpt-4o-mini", help="Model for justification step (default: gpt-4o-mini)")
+    args = ap.parse_args()
+
+    start_date = args.start_date
+    end_date = args.end_date
+    headless_flag = "--headless" if args.headless else ""
+    gpt_model = args.gpt_model
+
+    # Ensure directories
+    DATA_RAW.mkdir(parents=True, exist_ok=True)
+    PLOTS_DIR.mkdir(parents=True, exist_ok=True)
+
+    # ---------------- 1A. Minutes scraper ----------------
+    banner("STEP: 1A. SCRAPE Minutes")
+    cmd_1a = f'{PYTHON} "{MEETING_SCRAPER}" --start-date {start_date} --end-date {end_date} {headless_flag}'
+    run_cmd(cmd_1a, cwd=REPO)
+
+    if not MINUTES_JSON.exists():
+        raise FileNotFoundError(
+            f"Expected minutes JSON not found:\n  {MINUTES_JSON}\n"
+            "Check meeting_scraper.py output path."
+        )
+
+    # ---------------- 1B. Speeches scraper ----------------
+    banner("STEP: 1B. SCRAPE Speeches")
+    cmd_1b = f'{PYTHON} "{SPEECH_SCRAPER}" --start-date {start_date} --end-date {end_date}'
+    run_cmd(cmd_1b, cwd=REPO)
+
+    speeches_csv = find_speeches_csv()
+    if speeches_csv is None:
+        raise FileNotFoundError(
+            "Speeches CSV not found in any known locations:\n"
+            f"  {SPEECHES_CSV_PRIMARY}\n"
+            + "\n".join([f"  {p}" for p in SPEECHES_CSV_FALLBACKS])
+        )
+    print(f"📄 Using speeches CSV: {speeches_csv}")
+
+    # ---------------- 2. Prepare (monthly aggregation) ----------------
+    banner("STEP: 2. PREPARE Monthly Aggregations")
+    # end-date is accepted but not needed; we pass it for signature consistency
+    cmd_2 = f'{PYTHON} "{PREPARE_STEP}" --start-date {start_date} --end-date {end_date}'
+    run_cmd(cmd_2, cwd=REPO)
+
+    # Verify monthly outputs
+    if not MINUTES_MONTHLY.exists():
+        raise FileNotFoundError(f"Missing minutes monthly JSON: {MINUTES_MONTHLY}")
+    if not SPEECHES_MONTHLY.exists():
+        raise FileNotFoundError(f"Missing speeches monthly JSON: {SPEECHES_MONTHLY}")
+    # reference is optional, but warn if missing
+    if not REFERENCE_MONTHLY.exists():
+        print(f"⚠️  Reference monthly JSON not found (optional): {REFERENCE_MONTHLY}")
+
+    # ---------------- 3A. Scoring & plots ----------------
+    banner("STEP: 3A. SCORE with RoBERTa + Merge + Plots")
+    # 3A only needs start-date; we pass it (and end) for logging homogeneity
+    cmd_3a = f'{PYTHON} "{ROBERTA_STEP}" --start-date {start_date}'
+    run_cmd(cmd_3a, cwd=REPO)
+
+    if not SCORES_CSV.exists():
+        raise FileNotFoundError(f"Missing merged scores CSV: {SCORES_CSV}")
+
+    # ---------------- 3B. Justification via GPT ----------------
+    banner("STEP: 3B. GPT Justifications (reference → else merged)")
+    cmd_3b = (
+        f'{PYTHON} "{JUSTIFY_STEP}" '
+        f'--start-date {start_date} --end-date {end_date} --model {gpt_model}'
     )
-    parser.add_argument(
-        "--start-date",
-        type=str,
-        required=True,
-        help="Start date for scraping and filtering (YYYY-MM-DD)."
-    )
-    args = parser.parse_args()
+    run_cmd(cmd_3b, cwd=REPO)
 
-    date_prefix = args.start_date.replace('-', '')
-    print(f"Starting pipeline. Date Prefix: {date_prefix}. Keywords assumed: {DEFAULT_KEYWORDS_FOR_LOG}")
-    
-    # --- 1. DATA INGESTION ---
-    # 1A. Scrape Minutes Data
-    run_command([
-        sys.executable, str(MINUTES_SCRAPER_TOOL),
-        "--start-date", args.start_date
-    ], "1A. SCRAPE: Ingest Raw Minutes Data")
+    if not JUSTIFY_CSV.exists():
+        raise FileNotFoundError(f"Missing justifications CSV: {JUSTIFY_CSV}")
 
-    # 1B. Scrape Speeches Data
-    run_command([
-        sys.executable, str(SPEECHES_SCRAPER_TOOL),
-        "--start-date", args.start_date
-    ], "1B. SCRAPE: Ingest Raw Speeches Data")
-
-    # --- 2. CONTEXT CLEANSING & TRANSFORMATION (Creates the 4 monthly JSONs) ---
-    run_command([
-        sys.executable, str(PREP_TOOL),
-        "--start-date", args.start_date 
-    ], "2. PREPARE: Clean & Aggregate All Documents")
-    
-    # --- 3. CONTEXT ENRICHMENT (SCORING) ---
-    
-    # 3A. Roberta Scoring (Creates all base scores and the critical merged score CSVs)
-    run_command([
-        sys.executable, str(SCORING_TOOL),
-        "--start-date", args.start_date 
-    ], "3A. SCORE: Generate All Monthly Scores (Roberta)")
-
-    # 3B. Roberta Evaluation & Plotting (Loads the CSVs created in 3A and generates the final plot/CSV)
-    run_command([
-        sys.executable, str(EVAL_PLOT_TOOL),
-        "--start-date", args.start_date 
-    ], "3B. EVAL/PLOT: Final Analysis and Plotting")
-
-
-    # 3C. OpenAI Scoring & Justification
-    run_command([
-        sys.executable, str(OPENAI_TOOL),
-        "--start-date", args.start_date 
-    ], "3C. SCORE/JUSTIFY: OpenAI LLM Analysis")
-    
-    print("\n\n✅ AGENT PIPELINE COMPLETE.")
-    print(f"Final outputs are prefixed with: {date_prefix}_")
+    banner("✅ PIPELINE COMPLETE")
+    print("Outputs:")
+    print(f"  Minutes map:           {MINUTES_JSON}")
+    print(f"  Speeches CSV:          {speeches_csv}")
+    print(f"  Minutes monthly:       {MINUTES_MONTHLY}")
+    print(f"  Speeches monthly:      {SPEECHES_MONTHLY}")
+    print(f"  Reference monthly:     {REFERENCE_MONTHLY} (optional)")
+    print(f"  Scores CSV:            {SCORES_CSV}")
+    print(f"  Justifications (CSV):  {JUSTIFY_CSV}")
+    print(f"  Plots dir:             {PLOTS_DIR}")
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception as e:
+        print("\n❌ ROOT PIPELINE FAILED")
+        print(str(e))
+        sys.exit(1)
