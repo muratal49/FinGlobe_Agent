@@ -315,48 +315,46 @@ def expandAll(driver):
 # --- replace your collectItems(driver) with this paginated version ---
 
 def collectItems(driver):
-    wait = WebDriverWait(driver, 15)
-
-    # ensure first page ready
+    """
+    Collect all MPC Minutes links across *all* paginated result pages.
+    Fixes the partial pagination issue that skipped 2016–2019.
+    """
+    wait = WebDriverWait(driver, 20)
     try:
         wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "main")))
     except TimeoutException:
-        pass
+        logger.warning("Main container not detected; proceeding anyway.")
 
-    cur, total = _pagination_meta(driver)
-    seen = set()
-    all_items = []
+    all_items, seen = [], set()
+    page, total = _pagination_meta(driver)
+    logger.info("Detected %d total page(s) at start.", total)
 
-    for page in range(cur, total + 1):
-        # (re)read container each loop
+    # iterate until no next page or max page reached
+    while True:
+        # --- collect cards on current page ---
         try:
-            wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "nav.container-list-pagination, main")))
-        except TimeoutException:
-            pass
-
-        cards = _result_cards(driver)
+            cards = _result_cards(driver)
+        except Exception:
+            cards = []
         got = 0
 
         for c in cards:
-            # find an anchor with the target href
             href = None
-            a = None
+            date_txt = ""
             try:
                 a = c.find_element(By.XPATH, ".//a[contains(@href,'/monetary-policy-summary-and-minutes/')]")
                 href = a.get_attribute("href")
             except Exception:
                 try:
-                    # card itself might be <a>
                     href = c.get_attribute("href")
                 except Exception:
                     href = None
 
-            if not is_mps_href(href) or href in seen:
+            if not href or not is_mps_href(href) or href in seen:
                 continue
 
-            # date hint: prefer <time datetime>
-            date_txt = ""
             try:
+                # prefer <time datetime>
                 t = c.find_element(By.XPATH, ".//time[@datetime]")
                 date_txt = (t.get_attribute("datetime") or "")[:10]
             except Exception:
@@ -370,17 +368,25 @@ def collectItems(driver):
             seen.add(href)
             got += 1
 
+        cur, total = _pagination_meta(driver)
         logger.info("Collected %d item(s) on page %d/%d (total %d).",
-                    got, page, total, len(all_items))
+                    got, cur, total, len(all_items))
 
-        if page < total:
-            _click_page(driver, page + 1, timeout=20)
-            # brief settle
-            time.sleep(0.3)
+        # --- move to next page if exists ---
+        try:
+            next_btn = driver.find_element(By.CSS_SELECTOR, "a.list-pagination__link[data-page-link='%d']" % (cur + 1))
+            if "is-disabled" in next_btn.get_attribute("class"):
+                break
+            driver.execute_script("arguments[0].scrollIntoView({block:'center'});", next_btn)
+            driver.execute_script("arguments[0].click();", next_btn)
+            time.sleep(2.5)  # give time for results to refresh
+            cur2, _ = _pagination_meta(driver)
+            if cur2 <= cur:
+                break  # pagination didn't advance
+        except Exception:
+            break
 
-    logger.info("Collected %d MPC items across %d page(s).", len(all_items), max(total, 1))
-
-    # return [(date_hint, href)] unique
+    logger.info("✅ Collected %d MPC items across %d page(s).", len(all_items), max(1, total))
     uniq = {h: d for d, h in all_items}
     return [(v, k) for k, v in uniq.items()]
 
