@@ -19,11 +19,19 @@ from datetime import datetime, timedelta, timezone
 import requests
 from bs4 import BeautifulSoup
 
+
+# === PATHS (UNIFIED) ===
+BASE_PATH = Path("/Users/murat/Desktop/Capstone/FinGlobe_Agent")
+DATA_RAW = BASE_PATH / "data" / "raw"
+DATA_RAW.mkdir(parents=True, exist_ok=True)
+
+OUTPUT_CSV = DATA_RAW / "boe_filtered_speeches_conclusion.csv" # Updated default output name
+
+
 # ---------- Config defaults ----------
 SITEMAP_URL = "https://www.bankofengland.co.uk/sitemap/speeches"
 # Removed DEFAULT_MONTHS_BACK
 DEFAULT_KEYWORDS = ["Monetary Policy Committee", "MPC", "inflation"]
-OUTPUT_CSV = "data/raw/boe_filtered_speeches_conclusion.csv" # Updated default output name
 
 MONTHS = {
     "january": 1, "february": 2, "march": 3, "april": 4, "may": 5, "june": 6,
@@ -218,7 +226,7 @@ def extract_conclusion(text: str) -> str | None:
     clean_text = re.sub(r"\s+", " ", text).strip()
 
     # look for conclusion markers
-    pattern = re.compile(r"(?i)\b(conclusion|summary|to conclude|final thoughts|closing remarks)\b")
+    pattern = re.compile(r"(?i)\b(in conclusion|to summarize|conclusion|summary|to conclude|final thoughts|closing remarks)\b")
     match = pattern.search(clean_text)
 
     if match:
@@ -228,7 +236,7 @@ def extract_conclusion(text: str) -> str | None:
         # fallback: last 3–4 sentences
         sentences = re.split(r"(?<=[.!?])\s+", clean_text)
         # Ensure we don't try to slice more sentences than exist
-        section = " ".join(sentences[-4:])
+        section = " ".join(sentences[-20:])
 
     # cut off acknowledgements/references
     end_pattern = re.compile(r"(?i)\b(acknowledg|reference|appendix|thank|bibliograph)\b")
