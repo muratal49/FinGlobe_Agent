@@ -1,0 +1,35 @@
+### Long Explanation
+
+The communication from the Bank of England's Monetary Policy Committee (MPC) for December 2015 provides insights into the central bank's assessment of the economic environment and its monetary policy stance. The primary goal of the MPC is to achieve a 2% inflation target while supporting economic growth and employment. In this communication, the MPC decided to maintain the Bank Rate at 0.5% with a majority vote of 8-1, and unanimously agreed to keep the stock of purchased assets at £375 billion.
+
+The communication highlights several key points:
+
+1. **Inflation Concerns**: The MPC noted that the twelve-month Consumer Price Index (CPI) inflation remained at -0.1% in October, which is significantly below the 2% target. Although inflation was expected to turn slightly positive in November, it was projected to remain below 1% until the second half of the following year. This indicates a concern about low inflation, which is a dovish signal as it suggests the need for accommodative monetary policy to support price increases.
+
+2. **Economic Growth and Spare Capacity**: The MPC expressed a commitment to setting monetary policy in a way that ensures economic growth is sufficient to absorb remaining spare capacity. This reflects a focus on supporting economic activity, which is typically associated with a dovish stance.
+
+3. **Global and Domestic Economic Conditions**: The communication mentioned stable global growth at a rate below historical averages and robust domestic private spending counterbalancing subdued overseas demand. The MPC acknowledged that the risks to their inflation projection were slightly to the downside due to global factors, indicating caution about international economic conditions.
+
+4. **Future Inflation Expectations**: The MPC's central view was that if the Bank Rate followed a gently rising path, CPI inflation would slightly exceed the 2% target in two years, reflecting modest excess demand. This suggests a neutral to slightly hawkish outlook for the medium term, as it anticipates inflation rising above the target.
+
+Overall, the communication signals a predominantly dovish stance due to concerns about low current inflation and the need to support economic growth. However, there are elements of caution regarding future inflation expectations and global economic risks, which add a slight neutral tone.
+
+### JSON Block
+
+```json
+{
+  "month": "2015-12",
+  "bank": "Bank of England",
+  "stance": "dovish",
+  "model_score": -0.2667,
+  "reference_score": -0.1404,
+  "alignment": "agree",
+  "summary": "The Bank of England maintained the Bank Rate at 0.5% and expressed concerns about low inflation, projecting it to remain below 1% until the second half of next year. The communication emphasized the need to support economic growth and absorb spare capacity, reflecting a dovish stance.",
+  "evidence": [
+    "CPI inflation remained at -0.1% in October",
+    "inflation is expected to stay below 1% until the second half of next year",
+    "growth is sufficient to absorb remaining spare capacity",
+    "global growth having been stable at a rate well below historical averages"
+  ]
+}
+```

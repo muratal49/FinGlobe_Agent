@@ -1,0 +1,27 @@
+The communication from the Bank of Canada for July 2015 provides insights into the economic conditions and the central bank's perspective on inflation and economic growth. The bank acknowledges some positive developments, such as the strong performance of export sub-sectors sensitive to exchange rate movements and the temporary nature of the U.S. economic setback. Additionally, the Canadian non-resource sector's labor market is performing well, with indications of rising capacity constraints, suggesting potential for increased investment and employment gains in the future. These positive trends are expected to begin outweighing the negatives from the resource sector.
+
+However, the communication also highlights concerns about the economy operating below full capacity, which has been the case for some time. This situation has led to an underlying trend in inflation running at around 1.5 to 1.7 percent, which is below the bank's target. The bank notes that core inflation is higher due to the declining dollar raising import prices, while total inflation is much lower because of past declines in fuel prices. The weak economic performance in the first half of the year has resulted in more excess capacity, increasing downward pressure on the underlying trend in inflation. The bank uses its risk management framework to indicate that the downside risk to future inflation is material, suggesting a slower return to full economic capacity and sustainable 2 percent inflation.
+
+In terms of signaling, the communication contains both dovish and neutral elements. The dovish elements are reflected in the bank's concern about economic weakness and the acknowledgment of excess capacity, which increases downward pressure on inflation. This is evident in phrases like "the economy has been operating below full capacity" and "the downside risk to future inflation is material." These concerns imply a cautious approach to monetary policy, potentially favoring lower interest rates to support economic growth and achieve the inflation target.
+
+The neutral elements are seen in the bank's acknowledgment of positive trends in certain sectors and the expectation that these trends will begin to outweigh the negatives. This is reflected in phrases like "we expect these positive trends to begin to outweigh the negatives" and "the setback in the U.S. economy appears to have been mainly temporary."
+
+Overall, the communication signals a mixed stance, with a leaning towards dovishness due to the emphasis on economic weakness and inflation risks.
+
+```json
+{
+  "month": "2015-07",
+  "bank": "Bank of Canada",
+  "stance": "mixed",
+  "model_score": -0.0625,
+  "reference_score": -0.2400,
+  "alignment": "diverge",
+  "summary": "The Bank of Canada highlighted both positive trends in certain sectors and concerns about economic weakness and inflation risks. The communication suggests a cautious approach to monetary policy, with an emphasis on addressing excess capacity and achieving the inflation target.",
+  "evidence": [
+    "the economy has been operating below full capacity",
+    "the downside risk to future inflation is material",
+    "we expect these positive trends to begin to outweigh the negatives",
+    "the setback in the U.S. economy appears to have been mainly temporary"
+  ]
+}
+```

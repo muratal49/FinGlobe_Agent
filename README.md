@@ -1,98 +1,167 @@
-# 🏦 FinGlobe_Agent — Bank of England MacroX Capstone
+# FinGlobe Agent
+Agentic NLP System for Central Bank Communication Analysis
 
-### *Automated multi-agent pipeline for central-bank sentiment analysis*  
-**University of Rochester – MacroX FinGlobe Capstone (Fall 2025)**  
-Lead: **Murat Al** | Collaborators: Saruul, Praveen, Yibin  
+FinGlobe Agent is an end-to-end, agentic NLP pipeline designed to analyze central bank communications from the Bank of England (BoE) and the Bank of Canada (BoC). The system extracts, preprocesses, scores, explains, and visualizes hawkish/dovish monetary policy stance using a unified transformer model, intelligent caching, and an interactive Streamlit dashboard.
 
----
+The pipeline is optimized for reproducibility, incremental updates, and fast repeat queries. Once a query has been processed, subsequent runs return results instantly without re-scraping, re-scoring, or re-generating explanations.
 
-## 📘 Project Overview
+------------------------------------------------------------
+What the System Does
+------------------------------------------------------------
 
-**FinGlobe_Agent** is a multi-agent AI pipeline that automatically scrapes, processes, scores, and interprets the **Bank of England’s monetary policy communications** — including **MPC Minutes, Speeches, and Reports** — to analyze *hawkish vs. dovish* sentiment.
+Given a natural-language query such as:
 
-The project is part of the **MacroX FinGlobe Capstone**, integrating LLM-based justifications and traditional NLP stance models to provide data-driven central-bank sentiment insights.
+"market conditions in Canada in 2024"
 
----
+FinGlobe Agent will:
 
-## 🚀 End-to-End Pipeline
+1. Interpret the query
+   - Detect the central bank (BoE or BoC)
+   - Infer the date range (year, month, or range)
+   - Expand context when needed for meaningful visualization
 
-| Step | Script | Output | Description |
-|------|---------|---------|-------------|
-| **1A** | `tools/meeting_scraper.py` | `data/raw/minutes_boe.json` | Scrapes MPC meeting minutes (Bank of England site). |
-| **1B** | `tools/scrape_boe_speeches.py` | `data/raw/boe_filtered_speeches_conclusion.csv` | Collects and filters speeches related to monetary policy and inflation. |
-| **2** | `tools/preparing_scraped_docs.py` | Monthly JSONs (`minutes_boe_monthly.json`, `speeches_boe_monthly.json`, `reference_boe_monthly.json`) | Cleans and aggregates all raw text by month. |
-| **3A** | `tools/roberta_merged_score_evaluate.py` | `data/raw/merged_boe_scores.csv`, plots | Applies a fine-tuned RoBERTa stance model, computes MSE vs. reference scores, and generates monthly evaluation plots. |
-| **3B** | `tools/openai_merge_justify.py` | `data/raw/justifications_openai.csv` | Uses GPT-4o to produce ~300-word natural-language justifications for each monthly sentiment score. |
-| **ROOT** | `tools/root_agent.py` | Full automation | Runs all steps sequentially with user-provided date range. |
+2. Check cached artifacts
+   - Monthly merged corpora
+   - Model score CSV outputs
+   - GPT-generated justifications
 
----
+3. Execute tools only if necessary
+   - Scrape missing documents only
+   - Rebuild monthly corpora only when new data exists
+   - Score only newly added months
+   - Generate justifications only for missing months
 
-## 🧠 Example Usage
+4. Return results instantly if cached
+   - No redundant scraping
+   - No redundant model inference
+   - No repeated OpenAI API calls
 
-```bash
-python3 tools/root_agent.py --start-date 2024-08-01 --end-date 2025-01-01
-```
+5. Visualize and explain results
+   - Interactive model score time series
+   - Monthly table with:
+     - model score
+     - short summary
+     - full justification text
 
----
+------------------------------------------------------------
+Project Structure
+------------------------------------------------------------
 
-## 📂 Output Summary
-
-| File | Description |
-|------|--------------|
-| `data/raw/minutes_boe.json` | Raw MPC minutes text |
-| `data/raw/boe_filtered_speeches_conclusion.csv` | Filtered speeches with conclusion sections |
-| `data/raw/minutes_boe_monthly.json` | Aggregated monthly minutes |
-| `data/raw/speeches_boe_monthly.json` | Aggregated monthly speeches |
-| `data/raw/reference_boe_monthly.json` | (Optional) Ground-truth reference scores |
-| `data/raw/merged_boe_scores.csv` | Merged stance model results & weighted scores |
-| `data/raw/justifications_openai.csv` | GPT-generated justifications (≈300 words each) |
-| `data/plots/` | Auto-generated MSE and comparison charts |
-
----
-
-## 🧰 Environment Setup
-
-```bash
-conda create -n finagent python=3.10
-conda activate finagent
-pip install -r requirements.txt
-```
-
-### `.env` configuration
-Create a `.env` file in the project root with:
-```
-OPENAI_API_KEY=sk-xxxxxxxxxxxxxxxxxxxx
-```
-
----
-
-## 🧩 Project Architecture
-
-```
 FinGlobe_Agent/
 │
 ├── tools/
-│   ├── meeting_scraper.py
-│   ├── scrape_boe_speeches.py
-│   ├── preparing_scraped_docs.py
-│   ├── roberta_merged_score_evaluate.py
-│   ├── openai_merge_justify.py
-│   └── root_agent.py
+│   ├── root_agent.py
+│   ├── query_interpreter_llm.py
+│   ├── a_boe_minutes_scraper_full.py
+│   ├── a_boe_speech_scraper.py
+│   ├── a_boc_policy_mpr.py
+│   ├── a_boc_speeches.py
+│   ├── a_preparing_scraped_docs.py
+│   ├── a_roberta_score_evaluate_NoWCB.py
+│   └── a_openai_justification.py
 │
 ├── data/
-│   ├── raw/
-│   │   ├── minutes_boe.json
-│   │   ├── boe_filtered_speeches_conclusion.csv
-│   │   ├── merged_boe_scores.csv
-│   │   └── justifications_openai.csv
-│   └── plots/
+│   └── raw/
+│       ├── minutes_*_monthly.json
+│       ├── speeches_*_monthly.json
+│       ├── merged_*_monthly.json
+│       └── reference_*_monthly.json
 │
-├── requirements.txt
+├── output_final/
+│   └── *_BANK_*_MER.csv
+│
+├── justifications/
+│   ├── BOE/
+│   │   └── YYYY-MM.json
+│   └── BOC/
+│       └── YYYY-MM.json
+│
+├── dashboard/
+│   └── streamlit_app.py
+│
 ├── .env
 └── README.md
-```
 
----
+------------------------------------------------------------
+Models Used
+------------------------------------------------------------
+
+Stance Classification Model:
+- gtfintechlab/model_bank_of_england_stance_label
+- Used for both BoE and BoC to maintain a unified scoring baseline
+
+Justification Generation:
+- OpenAI GPT-4o
+- Produces long-form explanations and structured summaries
+- Outputs are cached per month
+
+------------------------------------------------------------
+Outputs
+------------------------------------------------------------
+
+For each month, the system produces:
+
+- model_score:
+  Normalized hawkish–dovish score computed as:
+  (hawkish − dovish) / total labels
+
+- summary:
+  A short (2–3 sentence) human-readable explanation of the month’s stance
+
+- justification:
+  A detailed narrative explaining policy signals, economic conditions, and
+  evidence extracted from the source texts
+
+- interactive plot:
+  Model score over time with zoom, hover, and pan functionality
+
+------------------------------------------------------------
+Caching and Performance
+------------------------------------------------------------
+
+FinGlobe Agent is fully cache-aware.
+
+Component behavior:
+- Scraping runs only if monthly data is missing
+- Preprocessing runs only after new scraping
+- Scoring runs only when new months are added
+- Justifications are generated once per month and reused
+- Repeat queries return results instantly
+
+------------------------------------------------------------
+How to Run
+------------------------------------------------------------
+
+1. Install dependencies
+   pip install -r requirements.txt
+
+2. Set OpenAI API key
+   Create a file named .env in the project root:
+   OPENAI_API_KEY=your_api_key_here
+
+3. Launch the dashboard
+   streamlit run dashboard/streamlit_app.py
+
+------------------------------------------------------------
+Example Queries
+------------------------------------------------------------
+
+- canada 2024
+- market conditions in england in 2023
+- bank of canada inflation outlook
+- boe january 2022
+
+------------------------------------------------------------
+Design Principles
+------------------------------------------------------------
+
+- Agentic orchestration with explicit tool control
+- Minimal recomputation through caching
+- Monthly canonical datasets for reproducibility
+- Explainability-first design
+- Human-readable outputs for policy analysis
+
+------------------------------------------------------------
 
 ## 🧑‍💻 Contributors
 

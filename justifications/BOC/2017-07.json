@@ -1,0 +1,39 @@
+### Long Explanation
+
+The Bank of Canada's communication for July 2017 provides insights into its monetary policy stance and the rationale behind its decision to adjust interest rates. The central theme of the communication is the Bank's proactive approach to managing inflation and ensuring economic stability. 
+
+1. **Inflation Targeting and Future Outlook**: The communication emphasizes the importance of targeting future inflation rather than reacting to current inflation data. The Bank acknowledges that monetary policy actions take time to impact inflation, typically 18 to 24 months. This means that the Bank must anticipate future inflation trends and adjust interest rates accordingly. The statement, "central banks must target future inflation by anticipating future deviations from target," highlights this forward-looking approach.
+
+2. **Interest Rate Increase Justification**: The Bank justifies its decision to increase interest rates by pointing to the closing of the output gap and the recent soft inflation readings. The phrase "today’s increase in interest rates is clearly warranted" indicates a belief that the economy is strengthening and that higher rates are necessary to maintain inflation targets.
+
+3. **Economic Adjustment and Financial Stability**: The communication reflects on past monetary policy actions, noting that interest rates were lowered in 2015 to help the economy adjust to lower oil prices. Now, as the economy approaches full capacity, the Bank sees a higher policy rate as beneficial not only for inflation targeting but also for reinforcing efforts to mitigate financial system vulnerabilities. The statement "a higher policy rate in pursuit of our inflation target also serves to reinforce efforts to mitigate financial system vulnerabilities" underscores this dual objective.
+
+4. **Monitoring Inflation**: Despite the rate increase, the Bank remains cautious and intends to closely monitor inflation details to ensure that its policy remains appropriate. This is evident from the phrase, "we will of course monitor the details of inflation carefully."
+
+### Hawkish/Dovish/Neutral Elements
+
+- **Hawkish Elements**: The communication signals a more aggressive stance on inflation control by increasing interest rates. The emphasis on the closing output gap and the need for a higher policy rate to address inflation and financial vulnerabilities suggests a focus on tightening monetary policy. Phrases like "today’s increase in interest rates is clearly warranted" and "a higher policy rate...serves to reinforce efforts to mitigate financial system vulnerabilities" support this view.
+
+- **Neutral Elements**: The Bank's commitment to monitoring inflation carefully indicates a balanced approach, ensuring that any future policy adjustments are data-driven and responsive to economic conditions. The phrase "we will of course monitor the details of inflation carefully" reflects this cautious stance.
+
+Overall, the communication leans towards a hawkish stance due to the emphasis on raising interest rates to manage inflation and financial stability, while maintaining a neutral element by committing to ongoing monitoring of inflation data.
+
+### JSON Block
+
+```json
+{
+  "month": "2017-07",
+  "bank": "Bank of Canada",
+  "stance": "hawkish",
+  "model_score": 0.0000,
+  "reference_score": 0.0769,
+  "alignment": "diverge",
+  "summary": "The Bank of Canada communicated a hawkish stance by increasing interest rates to manage inflation and financial vulnerabilities as the economy approaches full capacity. The Bank remains committed to monitoring inflation closely to ensure appropriate policy adjustments.",
+  "evidence": [
+    "central banks must target future inflation by anticipating future deviations from target",
+    "today’s increase in interest rates is clearly warranted",
+    "a higher policy rate...serves to reinforce efforts to mitigate financial system vulnerabilities",
+    "we will of course monitor the details of inflation carefully"
+  ]
+}
+```
