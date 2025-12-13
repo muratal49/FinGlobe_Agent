@@ -165,13 +165,12 @@ Design Principles
 
 ## 🧑‍💻 Contributors
 
-| Name | Role | Key Contributions |
-|------|------|------------------|
-| **Murat Al** | Project Lead | Root Agent design, Model integration, Prompt Engineering |
-| **Saruul** | Analyst | EDA, Visualization, Topic Summaries |
-| **Praveen** | Researcher | Minutes analysis, Ground truth scoring |
-| **Yibin** | Engineer | Dashboard integration, GUI pipeline controls |
-
+| Name | 
+|------|
+| **Murat Al** 
+| **Saruultug Batbayar** 
+| **Praveen Kumar Anwla** 
+| **Yibin Wang** 
 ---
 
 ## 📜 License
